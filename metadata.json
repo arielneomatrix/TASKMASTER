@@ -1,0 +1,7 @@
+{
+  "name": "TaskMaster AI",
+  "description": "Un gestor de tareas diario inteligente con transcripción de voz, programación automática y resúmenes diarios de audio impulsados por Gemini.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
