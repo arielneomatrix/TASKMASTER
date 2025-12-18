@@ -1,14 +1,12 @@
+
 import { GoogleGenAI, Modality, Type } from "@google/genai";
 import { decodeBase64, decodeAudioData } from "./audioUtils";
 import { AiTaskResponse, Task } from "../types";
 
-// Helper to get client securely
+// Helper to get client securely using the hard-coded requirement for process.env.API_KEY
 const getAiClient = () => {
-  const apiKey = process.env.API_KEY || localStorage.getItem('GEMINI_API_KEY');
-  if (!apiKey) {
-    throw new Error("API Key not found");
-  }
-  return new GoogleGenAI({ apiKey });
+  // Always use new GoogleGenAI({ apiKey: process.env.API_KEY }) as per guidelines
+  return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
 // 1. Generate Auto-Title from Description (Spanish Prompt)
@@ -36,7 +34,7 @@ export const transcribeAndExtractTask = async (audioBase64: string): Promise<AiT
         parts: [
           {
             inlineData: {
-              mimeType: 'audio/wav', // Assumed standard recorder mime
+              mimeType: 'audio/wav',
               data: audioBase64
             }
           },
@@ -57,13 +55,14 @@ export const transcribeAndExtractTask = async (audioBase64: string): Promise<AiT
           properties: {
             title: { type: Type.STRING },
             description: { type: Type.STRING },
-            time: { type: Type.STRING, nullable: true }
+            time: { type: Type.STRING }
           },
           required: ["title", "description"]
         }
       }
     });
 
+    // Access response.text directly (not as a method)
     const jsonStr = response.text;
     if (!jsonStr) throw new Error("No response text");
     return JSON.parse(jsonStr) as AiTaskResponse;

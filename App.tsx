@@ -1,74 +1,79 @@
+
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import TaskView from './components/TaskView';
 import CalendarView from './components/CalendarView';
 import AssistantView from './components/AssistantView';
-import { Task, ViewState } from './types';
-import { playAudioSummary } from './services/geminiService';
+import SettingsView from './components/SettingsView';
+import { Task, ViewState, UserProfile, SyncStatus } from './types';
+import { cloudSync } from './services/syncService';
+import { getLocalISODate } from './services/dateUtils';
+import { Menu, Cloud, CloudSync as SyncIcon, Check } from 'lucide-react';
 
 const App: React.FC = () => {
-  // Simple check for API Key
-  const [hasKey, setHasKey] = useState(!!process.env.API_KEY || !!localStorage.getItem('GEMINI_API_KEY'));
-  
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.TASKS);
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  // FIX: Usar getLocalISODate para evitar errores de zona horaria
+  const [selectedDate, setSelectedDate] = useState<string>(getLocalISODate());
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [user, setUser] = useState<UserProfile>({ name: '', syncCode: '', avatarSeed: 'Jarvis' });
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('synced');
 
-  // Initialize key check
+  // Load local settings and tasks initially
   useEffect(() => {
-    if (!hasKey) {
-      const key = prompt("Por favor ingresa tu API Key de Gemini para usar esta demo:");
-      if (key) {
-        localStorage.setItem('GEMINI_API_KEY', key);
-        setHasKey(true);
-      }
-    }
-  }, [hasKey]);
+    const savedUser = localStorage.getItem('tm_user');
+    const savedTasks = localStorage.getItem('tm_tasks');
+    
+    if (savedUser) setUser(JSON.parse(savedUser));
+    if (savedTasks) setTasks(JSON.parse(savedTasks));
 
-  // Load sample tasks or from local storage
-  useEffect(() => {
-    const saved = localStorage.getItem('tm_tasks');
-    if (saved) {
-      setTasks(JSON.parse(saved));
-    }
+    // Resetear siempre a "Hoy" al abrir la app, aunque permita navegación después
+    setSelectedDate(getLocalISODate());
   }, []);
 
-  // Save tasks on change
+  // Sync with Cloud when tasks change (Debounced)
   useEffect(() => {
     localStorage.setItem('tm_tasks', JSON.stringify(tasks));
-  }, [tasks]);
+    
+    if (user.syncCode && user.syncCode.length > 5) {
+      const timeoutId = setTimeout(async () => {
+        setSyncStatus('syncing');
+        const success = await cloudSync.saveTasks(user.syncCode, tasks);
+        setSyncStatus(success ? 'synced' : 'error');
+      }, 2000); 
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [tasks, user.syncCode]);
 
-  // Alarm / Notification System
+  // Periodic Cloud Pull (Check for updates from other devices)
   useEffect(() => {
-    const interval = setInterval(() => {
-      const now = new Date();
-      // Unused variable for display, but could be useful for debugging
-      const currentTime = now.toLocaleTimeString('es-ES', { hour12: false, hour: '2-digit', minute: '2-digit' });
-      const currentDate = now.toISOString().split('T')[0];
+    if (!user.syncCode || user.syncCode.length < 5) return;
 
-      tasks.forEach(task => {
-        if (task.date === currentDate && !task.completed) {
-          // Check for 1 hour before
-          const [h, m] = task.time.split(':').map(Number);
-          const taskTimeDate = new Date(now);
-          taskTimeDate.setHours(h, m, 0);
+    // Carga inicial inmediata al detectar código
+    const initialLoad = async () => {
+       const cloudTasks = await cloudSync.loadTasks(user.syncCode);
+       if (cloudTasks) setTasks(cloudTasks);
+    };
+    initialLoad();
 
-          const diffMinutes = (taskTimeDate.getTime() - now.getTime()) / 60000;
-
-          // Simple "Voice Notification" logic (approx 60 mins or 30 mins)
-          // In a real app, we'd track "notified" state to prevent spamming
-          if (diffMinutes > 59 && diffMinutes < 60) {
-             playAudioSummary(`Recordatorio: Tienes ${task.title} en una hora.`);
+    const interval = setInterval(async () => {
+      const cloudTasks = await cloudSync.loadTasks(user.syncCode);
+      if (cloudTasks) {
+        // Estrategia simple: la nube manda. 
+        // En una app más compleja haríamos merge por timestamp, 
+        // pero para asegurar consistencia ahora, actualizamos si hay diferencias en longitud.
+        setTasks(prev => {
+          if (JSON.stringify(prev) !== JSON.stringify(cloudTasks)) {
+            return cloudTasks;
           }
-          if (diffMinutes > 29 && diffMinutes < 30) {
-             playAudioSummary(`Atención: ${task.title} comienza en 30 minutos.`);
-          }
-        }
-      });
-    }, 60000); // Check every minute
+          return prev;
+        });
+      }
+    }, 5000); // Revisar cada 5 segundos
 
     return () => clearInterval(interval);
-  }, [tasks]);
+  }, [user.syncCode]);
 
   const addTask = (task: Task) => {
     setTasks(prev => [...prev, task]);
@@ -78,44 +83,82 @@ const App: React.FC = () => {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
   };
 
+  const handleUpdateUser = async (newUser: UserProfile) => {
+    setUser(newUser);
+    localStorage.setItem('tm_user', JSON.stringify(newUser));
+    
+    if (newUser.syncCode) {
+      setSyncStatus('syncing');
+      const cloudTasks = await cloudSync.loadTasks(newUser.syncCode);
+      if (cloudTasks) {
+        setTasks(cloudTasks);
+        setSyncStatus('synced');
+      } else {
+        // Si el código es nuevo/inválido pero tenemos tareas locales, intentamos guardarlas ahí
+        if (tasks.length > 0) {
+           await cloudSync.saveTasks(newUser.syncCode, tasks);
+           setSyncStatus('synced');
+        } else {
+           setSyncStatus('error');
+        }
+      }
+    }
+  };
+
   const handleDateSelect = (date: string) => {
     setSelectedDate(date);
     setCurrentView(ViewState.TASKS);
+    setIsSidebarOpen(false);
   };
 
-  if (!hasKey) return <div className="h-screen flex items-center justify-center text-white">Por favor refresca e ingresa una API Key.</div>;
+  const handleClearData = () => {
+    setTasks([]);
+    localStorage.removeItem('tm_tasks');
+  };
 
   return (
-    <div className="flex h-screen w-screen bg-slate-950 text-slate-200 overflow-hidden font-sans">
-      <Sidebar 
-        currentView={currentView} 
-        onChangeView={setCurrentView} 
-      />
-      
-      <main className="flex-1 relative bg-slate-900 shadow-2xl overflow-hidden rounded-tl-3xl border-t border-l border-slate-800 ml-[-1px] mt-2">
-        {currentView === ViewState.TASKS && (
-          <TaskView 
-            tasks={tasks.filter(t => t.date === selectedDate)} 
-            date={selectedDate}
-            onAddTask={addTask}
-            onToggleTask={toggleTask}
-          />
-        )}
-        
-        {currentView === ViewState.CALENDAR && (
-          <CalendarView 
-            currentDate={selectedDate}
-            onSelectDate={handleDateSelect}
-            tasks={tasks}
-          />
-        )}
+    <div className="flex h-screen w-screen bg-slate-950 text-slate-200 overflow-hidden font-sans relative">
+      {isSidebarOpen && (
+        <div className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)} />
+      )}
 
-        {currentView === ViewState.ASSISTANT && (
-          <AssistantView 
-            tasks={tasks.filter(t => t.date === selectedDate)} 
-            date={selectedDate}
-          />
-        )}
+      <div className={`fixed md:relative z-50 h-full transition-transform duration-300 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+        <Sidebar 
+          currentView={currentView} 
+          onChangeView={(view) => { setCurrentView(view); setIsSidebarOpen(false); }} 
+          syncStatus={syncStatus}
+          user={user}
+        />
+      </div>
+      
+      <main className="flex-1 relative bg-slate-900 shadow-2xl overflow-hidden md:rounded-tl-3xl border-t border-l border-slate-800 ml-0 md:ml-[-1px] md:mt-2 flex flex-col">
+        <div className="md:hidden flex items-center justify-between p-4 border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-30">
+          <div className="flex items-center">
+            <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-slate-400 hover:text-white">
+              <Menu size={24} />
+            </button>
+            <span className="ml-4 font-bold text-lg bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">TaskMaster AI</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {syncStatus === 'syncing' && <SyncIcon size={18} className="text-blue-400 animate-spin" />}
+            {syncStatus === 'synced' && <Cloud size={18} className="text-green-500" />}
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-hidden relative">
+          {currentView === ViewState.TASKS && (
+            <TaskView tasks={tasks.filter(t => t.date === selectedDate)} date={selectedDate} onAddTask={addTask} onToggleTask={toggleTask} />
+          )}
+          {currentView === ViewState.CALENDAR && (
+            <CalendarView currentDate={selectedDate} onSelectDate={handleDateSelect} tasks={tasks} />
+          )}
+          {currentView === ViewState.ASSISTANT && (
+            <AssistantView tasks={tasks.filter(t => t.date === selectedDate)} date={selectedDate} />
+          )}
+          {currentView === ViewState.SETTINGS && (
+            <SettingsView tasks={tasks} onClearData={handleClearData} user={user} onUpdateUser={handleUpdateUser} />
+          )}
+        </div>
       </main>
     </div>
   );

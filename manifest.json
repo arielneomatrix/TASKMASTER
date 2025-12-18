@@ -1,0 +1,16 @@
+{
+  "name": "TaskMaster AI",
+  "short_name": "TaskMaster",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#2563eb",
+  "description": "Tu asistente diario de tareas con IA.",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "512x512"
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Task } from '../types';
 import { generateDailySummary, playAudioSummary } from '../services/geminiService';
@@ -16,11 +17,8 @@ const AssistantView: React.FC<AssistantViewProps> = ({ tasks, date }) => {
   const handleWhatsNew = async () => {
     setIsLoading(true);
     try {
-      // 1. Generate Text Summary
       const text = await generateDailySummary(tasks, date);
       setSummary(text);
-      
-      // 2. Play Audio
       setIsPlaying(true);
       await playAudioSummary(text);
       setIsPlaying(false);
@@ -33,18 +31,18 @@ const AssistantView: React.FC<AssistantViewProps> = ({ tasks, date }) => {
   };
 
   return (
-    <div className="h-full flex flex-col items-center justify-center p-8 text-center space-y-8 bg-gradient-to-b from-slate-900 to-slate-800">
+    <div className="h-full flex flex-col items-center justify-center p-6 md:p-8 text-center space-y-6 md:space-y-8 bg-gradient-to-b from-slate-900 to-slate-800 overflow-y-auto">
       
       <div className="relative">
-        <div className="absolute -inset-4 bg-blue-500/20 blur-xl rounded-full"></div>
-        <div className="w-24 h-24 bg-slate-800 rounded-full border border-slate-700 flex items-center justify-center shadow-2xl relative z-10">
-          <Sparkles className="text-blue-400" size={40} />
+        <div className="absolute -inset-4 bg-blue-500/20 blur-xl rounded-full animate-pulse"></div>
+        <div className="w-20 h-20 md:w-24 md:h-24 bg-slate-800 rounded-full border border-slate-700 flex items-center justify-center shadow-2xl relative z-10">
+          <Sparkles className="text-blue-400" size={32} md:size={40} />
         </div>
       </div>
 
       <div className="max-w-md space-y-2">
-        <h2 className="text-3xl font-bold text-white">Hola, Buenos Días</h2>
-        <p className="text-slate-400">
+        <h2 className="text-2xl md:text-3xl font-bold text-white">Hola, Buenos Días</h2>
+        <p className="text-slate-400 text-sm md:text-base">
           ¿Listo para escuchar tu agenda del {new Date(date).toLocaleDateString('es-ES')}?
         </p>
       </div>
@@ -52,7 +50,7 @@ const AssistantView: React.FC<AssistantViewProps> = ({ tasks, date }) => {
       <button
         onClick={handleWhatsNew}
         disabled={isLoading}
-        className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-white transition-all duration-200 bg-blue-600 font-pj rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full md:w-auto group relative inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-white transition-all duration-200 bg-blue-600 rounded-full focus:outline-none hover:bg-blue-500 disabled:opacity-50 active:scale-95"
       >
         {isLoading ? (
           <>
@@ -64,15 +62,15 @@ const AssistantView: React.FC<AssistantViewProps> = ({ tasks, date }) => {
           </>
         ) : (
           <>
-            <Play className="mr-2 fill-current" /> Reproducir Resumen Diario
+            <Play className="mr-2 fill-current" /> Reproducir Resumen
           </>
         )}
       </button>
 
       {summary && (
-        <div className="mt-8 bg-slate-800/50 border border-slate-700 p-6 rounded-2xl max-w-lg text-left shadow-inner">
-          <h3 className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-3">Transcripción</h3>
-          <p className="text-slate-300 leading-relaxed font-light">
+        <div className="mt-4 md:mt-8 bg-slate-800/50 border border-slate-700 p-5 md:p-6 rounded-2xl max-w-lg text-left shadow-inner">
+          <h3 className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-3">Transcripción</h3>
+          <p className="text-slate-300 leading-relaxed font-light text-sm md:text-base">
             "{summary}"
           </p>
         </div>

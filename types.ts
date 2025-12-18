@@ -1,3 +1,4 @@
+
 export interface Task {
   id: string;
   title: string;
@@ -6,6 +7,12 @@ export interface Task {
   time: string; // HH:mm
   completed: boolean;
   generated?: boolean;
+}
+
+export interface UserProfile {
+  name: string;
+  syncCode: string;
+  avatarSeed: string;
 }
 
 export interface AiTaskResponse {
@@ -17,12 +24,8 @@ export interface AiTaskResponse {
 export enum ViewState {
   TASKS = 'TASKS',
   CALENDAR = 'CALENDAR',
-  ASSISTANT = 'ASSISTANT'
+  ASSISTANT = 'ASSISTANT',
+  SETTINGS = 'SETTINGS'
 }
 
-export interface CalendarDay {
-  date: string;
-  isCurrentMonth: boolean;
-  isToday: boolean;
-  hasTasks: boolean;
-}
+export type SyncStatus = 'synced' | 'syncing' | 'error' | 'offline';
