@@ -29,3 +29,6 @@ export enum ViewState {
 }
 
 export type SyncStatus = 'synced' | 'syncing' | 'error' | 'offline';
+
+export type Language = 'es' | 'en' | 'id';
+

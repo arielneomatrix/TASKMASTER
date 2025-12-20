@@ -1,0 +1,302 @@
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { Language } from '../types';
+
+type Translations = {
+    [key in Language]: {
+        [key: string]: string | ((args: any) => string);
+    };
+};
+
+const translations: Translations = {
+    es: {
+        // Sidebar
+        'sidebar.tasks': 'Tareas Diarias',
+        'sidebar.calendar': 'Calendario',
+        'sidebar.assistant': 'Asistente',
+        'sidebar.install': 'Instalar App',
+        'sidebar.settings': 'Configuración',
+        'sidebar.synced': 'Sincronizado',
+        'sidebar.uploading': 'Subiendo...',
+        'sidebar.local_only': 'Solo Local',
+        'sidebar.sync_error': 'Error Sync',
+        'sidebar.guest': 'Invitado',
+
+        // TaskView
+        'task.my_day': 'Mi Día',
+        'task.no_tasks': 'No hay tareas para hoy.',
+        'task.empty_state': '¡Escribe algo abajo o usa tu voz!',
+        'task.title_placeholder': 'Título de la tarea...',
+        'task.desc_placeholder': 'Descripción detallada...',
+        'task.save': 'Guardar',
+        'task.cancel': 'Cancelar',
+        'task.edit': 'Editar',
+        'task.delete': 'Eliminar',
+        'task.created': '¡Tarea creada exitosamente!',
+        'task.updated': '¡Tarea actualizada!',
+        'task.completed': '¡Tarea completada!',
+        'task.deleted': 'Tarea eliminada',
+        'task.confirm_delete': (title: string) => `¿Estás seguro de que quieres eliminar la tarea "${title}"?`,
+        'task.conflict': (args: { time: string, title: string }) => `⚠️ Ya tienes una tarea a las ${args.time}: "${args.title}".\n\n¿Quieres agendar esta también a la misma hora?`,
+
+        // CalendarView
+        'calendar.weekdays': 'DOM_LUN_MAR_MIE_JUE_VIE_SAB', // Split by _
+        'calendar.tasks_count': (count: number) => `${count} Tareas`,
+
+        // AssistantView
+        'assistant.greeting': 'Hola, Buenos Días',
+        'assistant.intro': (date: string) => `¿Listo para escuchar tu agenda del ${date}?`,
+        'assistant.thinking': 'Pensando...',
+        'assistant.speaking': 'Hablando...',
+        'assistant.play': 'Reproducir Resumen',
+        'assistant.transcript': 'Transcripción',
+        'assistant.error': 'Lo siento, encontré un error al revisar tu agenda.',
+
+        // SettingsView
+        'settings.title': 'Cuenta y Nube',
+        'settings.configure_db': 'Configurar DB',
+        'settings.db_configured': 'Database Configurada',
+        'settings.cloud_infra': 'Infraestructura Cloud',
+        'settings.sync_info': 'Para sincronizar tus datos, necesitas conectar tu propia base de datos de <strong>Firebase</strong>. Es gratis y tus datos serán 100% privados.',
+        'settings.gemini_key': 'Gemini API Key (Para el Micrófono/IA)',
+        'settings.save_config': 'Guardar Configuración',
+        'settings.hello_user': (name: string) => `¡Hola, ${name}!`,
+        'settings.cloud_connected': 'Nube Conectada',
+        'settings.access_key': 'Tu Clave de Acceso',
+        'settings.disconnect': 'Desconectar Cuenta',
+        'settings.create_connect': 'CREAR / CONECTAR',
+        'settings.cloud_sync_title': 'Sincronización en la Nube',
+        'settings.cloud_sync_desc': 'Usa una "Clave Maestra" para guardar y acceder a tus tareas desde cualquier dispositivo.',
+        'settings.name_label': 'Tu Nombre (Para el Avatar)',
+        'settings.name_placeholder': 'Ej. Ariel',
+        'settings.key_label': 'Tu Clave Maestra',
+        'settings.key_placeholder': 'Crea una clave secreta...',
+        'settings.key_help': 'Si la clave es nueva, se creará un espacio. Si ya existe, se cargarán los datos.',
+        'settings.connecting': 'Conectando...',
+        'settings.connect_button': 'Conectar con Clave',
+        'settings.export_json': 'GUARDAR JSON',
+        'settings.delete_app': 'BORRAR APP',
+        'settings.delete_app_confirm': '¿Borrar todas las tareas de este dispositivo? Esta acción es irreversible.',
+        'settings.language': 'Idioma / Language',
+
+        // VoiceInput
+        'voice.stop': 'Detener Grabación',
+        'voice.add_task': 'Agregar Tarea por Voz',
+        'voice.listening': 'Escuchando...',
+        'voice.processing': 'Procesando...',
+        'voice.error_process': 'No se pudo procesar el audio. Verifica tu API Key o la consola.',
+        'voice.error_mic': 'Acceso al micrófono denegado. Asegúrate de estar en HTTPS o Localhost.',
+    },
+    en: {
+        // Sidebar
+        'sidebar.tasks': 'Daily Tasks',
+        'sidebar.calendar': 'Calendar',
+        'sidebar.assistant': 'Assistant',
+        'sidebar.install': 'Install App',
+        'sidebar.settings': 'Settings',
+        'sidebar.synced': 'Synced',
+        'sidebar.uploading': 'Uploading...',
+        'sidebar.local_only': 'Local Only',
+        'sidebar.sync_error': 'Sync Error',
+        'sidebar.guest': 'Guest',
+
+        // TaskView
+        'task.my_day': 'My Day',
+        'task.no_tasks': 'No tasks for today.',
+        'task.empty_state': 'Type something below or use your voice!',
+        'task.title_placeholder': 'Task title...',
+        'task.desc_placeholder': 'Detailed description...',
+        'task.save': 'Save',
+        'task.cancel': 'Cancel',
+        'task.edit': 'Edit',
+        'task.delete': 'Delete',
+        'task.created': 'Task created successfully!',
+        'task.updated': 'Task updated!',
+        'task.completed': 'Task completed!',
+        'task.deleted': 'Task deleted',
+        'task.confirm_delete': (title: string) => `Are you sure you want to delete the task "${title}"?`,
+        'task.conflict': (args: { time: string, title: string }) => `⚠️ You already have a task at ${args.time}: "${args.title}".\n\nDo you want to schedule this one at the same time too?`,
+
+        // CalendarView
+        'calendar.weekdays': 'SUN_MON_TUE_WED_THU_FRI_SAT',
+        'calendar.tasks_count': (count: number) => `${count} Tasks`,
+
+        // AssistantView
+        'assistant.greeting': 'Hello, Good Morning',
+        'assistant.intro': (date: string) => `Ready to hear your agenda for ${date}?`,
+        'assistant.thinking': 'Thinking...',
+        'assistant.speaking': 'Speaking...',
+        'assistant.play': 'Play Summary',
+        'assistant.transcript': 'Transcript',
+        'assistant.error': 'Sorry, I encountered an error checking your agenda.',
+
+        // SettingsView
+        'settings.title': 'Account & Cloud',
+        'settings.configure_db': 'Configure DB',
+        'settings.db_configured': 'Database Configured',
+        'settings.cloud_infra': 'Cloud Infrastructure',
+        'settings.sync_info': 'To sync your data, you need to connect your own <strong>Firebase</strong> database. It is free and your data remains 100% private.',
+        'settings.gemini_key': 'Gemini API Key (For Mic/AI)',
+        'settings.save_config': 'Save Configuration',
+        'settings.hello_user': (name: string) => `Hello, ${name}!`,
+        'settings.cloud_connected': 'Cloud Connected',
+        'settings.access_key': 'Your Access Key',
+        'settings.disconnect': 'Disconnect Account',
+        'settings.create_connect': 'CREATE / CONNECT',
+        'settings.cloud_sync_title': 'Cloud Sync',
+        'settings.cloud_sync_desc': 'Use a "Master Key" to save and access your tasks from any device.',
+        'settings.name_label': 'Your Name (For Avatar)',
+        'settings.name_placeholder': 'Ex. Ariel',
+        'settings.key_label': 'Your Master Key',
+        'settings.key_placeholder': 'Create a secret key...',
+        'settings.key_help': 'If the key is new, a space will be created. If it exists, data will be loaded.',
+        'settings.connecting': 'Connecting...',
+        'settings.connect_button': 'Connect with Key',
+        'settings.export_json': 'SAVE JSON',
+        'settings.delete_app': 'DELETE APP',
+        'settings.delete_app_confirm': 'Delete all tasks from this device? This action is irreversible.',
+        'settings.language': 'Language / Idioma',
+
+        // VoiceInput
+        'voice.stop': 'Stop Recording',
+        'voice.add_task': 'Add Task via Voice',
+        'voice.listening': 'Listening...',
+        'voice.processing': 'Processing...',
+        'voice.error_process': 'Could not process audio. Check your API Key or console.',
+        'voice.error_mic': 'Microphone access denied. Ensure you are on HTTPS or Localhost.',
+    },
+    id: {
+        // Sidebar
+        'sidebar.tasks': 'Tugas Harian',
+        'sidebar.calendar': 'Kalender',
+        'sidebar.assistant': 'Asisten',
+        'sidebar.install': 'Instal Aplikasi',
+        'sidebar.settings': 'Pengaturan',
+        'sidebar.synced': 'Tersinkronisasi',
+        'sidebar.uploading': 'Mengunggah...',
+        'sidebar.local_only': 'Lokal Saja',
+        'sidebar.sync_error': 'Kesalahan Sinkronisasi',
+        'sidebar.guest': 'Tamu',
+
+        // TaskView
+        'task.my_day': 'Hari Saya',
+        'task.no_tasks': 'Tidak ada tugas untuk hari ini.',
+        'task.empty_state': 'Ketik sesuatu di bawah atau gunakan suara Anda!',
+        'task.title_placeholder': 'Judul tugas...',
+        'task.desc_placeholder': 'Deskripsi rinci...',
+        'task.save': 'Simpan',
+        'task.cancel': 'Batal',
+        'task.edit': 'Ubah',
+        'task.delete': 'Hapus',
+        'task.created': 'Tugas berhasil dibuat!',
+        'task.updated': 'Tugas diperbarui!',
+        'task.completed': 'Tugas selesai!',
+        'task.deleted': 'Tugas dihapus',
+        'task.confirm_delete': (title: string) => `Apakah Anda yakin ingin menghapus tugas "${title}"?`,
+        'task.conflict': (args: { time: string, title: string }) => `⚠️ Anda sudah memiliki tugas pada jam ${args.time}: "${args.title}".\n\nApakah Anda ingin menjadwalkan ini pada waktu yang sama juga?`,
+
+        // CalendarView
+        'calendar.weekdays': 'MIN_SEN_SEL_RAB_KAM_JUM_SAB',
+        'calendar.tasks_count': (count: number) => `${count} Tugas`,
+
+        // AssistantView
+        'assistant.greeting': 'Halo, Selamat Pagi',
+        'assistant.intro': (date: string) => `Siap mendengarkan agenda Anda untuk ${date}?`,
+        'assistant.thinking': 'Berpikir...',
+        'assistant.speaking': 'Berbicara...',
+        'assistant.play': 'Putar Ringkasan',
+        'assistant.transcript': 'Transkrip',
+        'assistant.error': 'Maaf, saya menemukan kesalahan saat memeriksa agenda Anda.',
+
+        // SettingsView
+        'settings.title': 'Akun & Awan',
+        'settings.configure_db': 'Konfigurasi DB',
+        'settings.db_configured': 'Database Terkonfigurasi',
+        'settings.cloud_infra': 'Infrastruktur Awan',
+        'settings.sync_info': 'Untuk menyinkronkan data Anda, Anda perlu menghubungkan basis data <strong>Firebase</strong> Anda sendiri. Ini gratis dan data Anda akan 100% pribadi.',
+        'settings.gemini_key': 'Kunci API Gemini (Untuk Mikrofon/AI)',
+        'settings.save_config': 'Simpan Konfigurasi',
+        'settings.hello_user': (name: string) => `Halo, ${name}!`,
+        'settings.cloud_connected': 'Awan Terhubung',
+        'settings.access_key': 'Kunci Akses Anda',
+        'settings.disconnect': 'Putuskan Akun',
+        'settings.create_connect': 'BUAT / HUBUNGKAN',
+        'settings.cloud_sync_title': 'Sinkronisasi Awan',
+        'settings.cloud_sync_desc': 'Gunakan "Kunci Utama" untuk menyimpan dan mengakses tugas Anda dari perangkat apa pun.',
+        'settings.name_label': 'Nama Anda (Untuk Avatar)',
+        'settings.name_placeholder': 'Contoh: Ariel',
+        'settings.key_label': 'Kunci Utama Anda',
+        'settings.key_placeholder': 'Buat kunci rahasia...',
+        'settings.key_help': 'Jika kuncinya baru, spasi akan dibuat. Jika sudah ada, data akan dimuat.',
+        'settings.connecting': 'Menghubungkan...',
+        'settings.connect_button': 'Hubungkan dengan Kunci',
+        'settings.export_json': 'SIMPAN JSON',
+        'settings.delete_app': 'HAPUS APLIKASI',
+        'settings.delete_app_confirm': 'Hapus semua tugas dari perangkat ini? Tindakan ini tidak dapat dibatalkan.',
+        'settings.language': 'Bahasa / Language',
+
+        // VoiceInput
+        'voice.stop': 'Hentikan Rekaman',
+        'voice.add_task': 'Tambah Tugas via Suara',
+        'voice.listening': 'Mendengarkan...',
+        'voice.processing': 'Memproses...',
+        'voice.error_process': 'Tidak dapat memproses audio. Periksa Kunci API atau konsol Anda.',
+        'voice.error_mic': 'Akses mikrofon ditolak. Pastikan Anda menggunakan HTTPS atau Localhost.',
+    }
+};
+
+interface LanguageContextProps {
+    language: Language;
+    setLanguage: (lang: Language) => void;
+    t: (key: string, args?: any) => string;
+}
+
+const LanguageContext = createContext<LanguageContextProps | undefined>(undefined);
+
+export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const [language, setLanguageState] = useState<Language>('es'); // Default initial
+
+    useEffect(() => {
+        // 1. Check LocalStorage
+        const savedLang = localStorage.getItem('tm_language') as Language;
+        if (savedLang && ['es', 'en', 'id'].includes(savedLang)) {
+            setLanguageState(savedLang);
+            return;
+        }
+
+        // 2. Check Browser Language
+        const browserLang = navigator.language.split('-')[0];
+        if (browserLang === 'en') setLanguageState('en');
+        else if (browserLang === 'id') setLanguageState('id');
+        else setLanguageState('es'); // Default/Fallback to Spanish
+    }, []);
+
+    const setLanguage = (lang: Language) => {
+        setLanguageState(lang);
+        localStorage.setItem('tm_language', lang);
+    };
+
+    const t = (key: string, args?: any): string => {
+        const dict = translations[language] || translations['es'];
+        const value = dict[key];
+
+        if (typeof value === 'function') {
+            return value(args);
+        }
+        return value || key;
+    };
+
+    return (
+        <LanguageContext.Provider value= {{ language, setLanguage, t }
+}>
+    { children }
+    </LanguageContext.Provider>
+    );
+};
+
+export const useLanguage = () => {
+    const context = useContext(LanguageContext);
+    if (!context) {
+        throw new Error('useLanguage must be used within a LanguageProvider');
+    }
+    return context;
+};

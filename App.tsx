@@ -6,7 +6,7 @@ import CalendarView from './components/CalendarView';
 import AssistantView from './components/AssistantView';
 import SettingsView from './components/SettingsView';
 import { Task, ViewState, UserProfile, SyncStatus } from './types';
-import { cloudSync } from './services/syncService';
+import { cloudSync } from './services/firestoreService';
 import { getLocalISODate } from './services/dateUtils';
 import { Menu, Cloud, CloudSync as SyncIcon, Check } from 'lucide-react';
 
@@ -23,7 +23,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const savedUser = localStorage.getItem('tm_user');
     const savedTasks = localStorage.getItem('tm_tasks');
-    
+
     if (savedUser) setUser(JSON.parse(savedUser));
     if (savedTasks) setTasks(JSON.parse(savedTasks));
 
@@ -34,26 +34,26 @@ const App: React.FC = () => {
   // Sync with Cloud when tasks change (Debounced)
   useEffect(() => {
     localStorage.setItem('tm_tasks', JSON.stringify(tasks));
-    
-    if (user.syncCode && user.syncCode.length > 5) {
+
+    if (user.syncCode && user.syncCode.length > 3) {
       const timeoutId = setTimeout(async () => {
         setSyncStatus('syncing');
         const success = await cloudSync.saveTasks(user.syncCode, tasks);
         setSyncStatus(success ? 'synced' : 'error');
-      }, 2000); 
-      
+      }, 2000);
+
       return () => clearTimeout(timeoutId);
     }
   }, [tasks, user.syncCode]);
 
   // Periodic Cloud Pull (Check for updates from other devices)
   useEffect(() => {
-    if (!user.syncCode || user.syncCode.length < 5) return;
+    if (!user.syncCode || user.syncCode.length < 3) return;
 
     // Carga inicial inmediata al detectar código
     const initialLoad = async () => {
-       const cloudTasks = await cloudSync.loadTasks(user.syncCode);
-       if (cloudTasks) setTasks(cloudTasks);
+      const cloudTasks = await cloudSync.loadTasks(user.syncCode);
+      if (cloudTasks) setTasks(cloudTasks);
     };
     initialLoad();
 
@@ -70,7 +70,7 @@ const App: React.FC = () => {
           return prev;
         });
       }
-    }, 5000); // Revisar cada 5 segundos
+    }, 10000); // 10s polling for Firestore is safer than 5s
 
     return () => clearInterval(interval);
   }, [user.syncCode]);
@@ -83,10 +83,18 @@ const App: React.FC = () => {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
   };
 
+  const editTask = (updatedTask: Task) => {
+    setTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
+  };
+
+  const deleteTask = (id: string) => {
+    setTasks(prev => prev.filter(t => t.id !== id));
+  };
+
   const handleUpdateUser = async (newUser: UserProfile) => {
     setUser(newUser);
     localStorage.setItem('tm_user', JSON.stringify(newUser));
-    
+
     if (newUser.syncCode) {
       setSyncStatus('syncing');
       const cloudTasks = await cloudSync.loadTasks(newUser.syncCode);
@@ -94,12 +102,13 @@ const App: React.FC = () => {
         setTasks(cloudTasks);
         setSyncStatus('synced');
       } else {
-        // Si el código es nuevo/inválido pero tenemos tareas locales, intentamos guardarlas ahí
+        // Si no hay datos, pero tenemos tareas locales, sincronizamos lo local
         if (tasks.length > 0) {
-           await cloudSync.saveTasks(newUser.syncCode, tasks);
-           setSyncStatus('synced');
+          await cloudSync.saveTasks(newUser.syncCode, tasks);
+          setSyncStatus('synced');
         } else {
-           setSyncStatus('error');
+          // Si no hay ni local ni remoto, está "sincronizado" en vacío
+          setSyncStatus('synced');
         }
       }
     }
@@ -123,14 +132,14 @@ const App: React.FC = () => {
       )}
 
       <div className={`fixed md:relative z-50 h-full transition-transform duration-300 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
-        <Sidebar 
-          currentView={currentView} 
-          onChangeView={(view) => { setCurrentView(view); setIsSidebarOpen(false); }} 
+        <Sidebar
+          currentView={currentView}
+          onChangeView={(view) => { setCurrentView(view); setIsSidebarOpen(false); }}
           syncStatus={syncStatus}
           user={user}
         />
       </div>
-      
+
       <main className="flex-1 relative bg-slate-900 shadow-2xl overflow-hidden md:rounded-tl-3xl border-t border-l border-slate-800 ml-0 md:ml-[-1px] md:mt-2 flex flex-col">
         <div className="md:hidden flex items-center justify-between p-4 border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-30">
           <div className="flex items-center">
@@ -147,7 +156,14 @@ const App: React.FC = () => {
 
         <div className="flex-1 overflow-hidden relative">
           {currentView === ViewState.TASKS && (
-            <TaskView tasks={tasks.filter(t => t.date === selectedDate)} date={selectedDate} onAddTask={addTask} onToggleTask={toggleTask} />
+            <TaskView
+              tasks={tasks.filter(t => t.date === selectedDate)}
+              date={selectedDate}
+              onAddTask={addTask}
+              onToggleTask={toggleTask}
+              onEditTask={editTask}
+              onDeleteTask={deleteTask}
+            />
           )}
           {currentView === ViewState.CALENDAR && (
             <CalendarView currentDate={selectedDate} onSelectDate={handleDateSelect} tasks={tasks} />

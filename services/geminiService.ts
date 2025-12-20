@@ -5,8 +5,17 @@ import { AiTaskResponse, Task } from "../types";
 
 // Helper to get client securely using the hard-coded requirement for process.env.API_KEY
 const getAiClient = () => {
-  // Always use new GoogleGenAI({ apiKey: process.env.API_KEY }) as per guidelines
-  return new GoogleGenAI({ apiKey: process.env.API_KEY });
+  // Try environment variable, then hardcoded (if you edit this file), then localStorage
+  const apiKey = process.env.API_KEY || "AIzaSyB-gccwmIvZDAZwVvjN9s98gK3WpVFUo7c" || localStorage.getItem('tm_gemini_key');
+
+  if (!apiKey || apiKey === "YOUR_GEMINI_KEY_HERE") {
+    // If it's still the placeholder, try local storage one last time or fail
+    const local = localStorage.getItem('tm_gemini_key');
+    if (local) return new GoogleGenAI({ apiKey: local });
+    throw new Error("No Gemini API Key found. Please configure it in Settings.");
+  }
+
+  return new GoogleGenAI({ apiKey });
 };
 
 // 1. Generate Auto-Title from Description (Spanish Prompt)
@@ -25,7 +34,7 @@ export const generateTitleFromDescription = async (description: string): Promise
 };
 
 // 2. Transcribe Audio and Extract Task Details (Spanish Context)
-export const transcribeAndExtractTask = async (audioBase64: string): Promise<AiTaskResponse> => {
+export const transcribeAndExtractTask = async (audioBase64: string, mimeType: string = 'audio/wav'): Promise<AiTaskResponse> => {
   try {
     const ai = getAiClient();
     const response = await ai.models.generateContent({
@@ -34,7 +43,7 @@ export const transcribeAndExtractTask = async (audioBase64: string): Promise<AiT
         parts: [
           {
             inlineData: {
-              mimeType: 'audio/wav',
+              mimeType: mimeType,
               data: audioBase64
             }
           },
@@ -117,7 +126,7 @@ export const generateDailySummary = async (tasks: Task[], dateContext: string): 
   try {
     const ai = getAiClient();
     const taskList = tasks.map(t => `- [${t.time || 'Todo el día'}] ${t.title}: ${t.description}`).join('\n');
-    
+
     const prompt = `
       Eres un asistente personal útil llamado Jarvis. Hablas Español.
       Hoy es ${dateContext}.

@@ -1,14 +1,17 @@
+
 import React, { useState, useRef } from 'react';
 import { Mic, Square, Loader2 } from 'lucide-react';
 import { blobToBase64 } from '../services/audioUtils';
 import { transcribeAndExtractTask } from '../services/geminiService';
 import { AiTaskResponse } from '../types';
+import { useLanguage } from '../services/i18n';
 
 interface VoiceInputProps {
   onTaskDetected: (task: AiTaskResponse) => void;
 }
 
 const VoiceInput: React.FC<VoiceInputProps> = ({ onTaskDetected }) => {
+  const { t } = useLanguage();
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -17,7 +20,18 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onTaskDetected }) => {
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
+
+      // Smart MIME Type Detection
+      let mimeType = 'audio/webm'; // Default for Chrome/FF
+      if (MediaRecorder.isTypeSupported('audio/mp4')) {
+        mimeType = 'audio/mp4'; // Safari
+      } else if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+        mimeType = 'audio/webm;codecs=opus';
+      }
+
+      console.log("Recording with MIME:", mimeType);
+
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
 
@@ -27,15 +41,17 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onTaskDetected }) => {
 
       mediaRecorder.onstop = async () => {
         setIsProcessing(true);
-        const audioBlob = new Blob(chunksRef.current, { type: 'audio/wav' }); // or audio/webm
-        
+        // Important: Create blob with specific MIME type
+        const audioBlob = new Blob(chunksRef.current, { type: mimeType });
+
         try {
           const base64 = await blobToBase64(audioBlob);
-          const result = await transcribeAndExtractTask(base64);
+          // Pass the actual MIME type to the service
+          const result = await transcribeAndExtractTask(base64, mimeType);
           onTaskDetected(result);
         } catch (err) {
           console.error("Transcription failed", err);
-          alert("No se pudo procesar el audio. Verifica tu API Key o la consola.");
+          alert(t('voice.error_process'));
         } finally {
           setIsProcessing(false);
           // Stop all tracks
@@ -47,7 +63,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onTaskDetected }) => {
       setIsRecording(true);
     } catch (err) {
       console.error("Error accessing mic", err);
-      alert("Acceso al micrófono denegado.");
+      alert(t('voice.error_mic'));
     }
   };
 
@@ -59,26 +75,32 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onTaskDetected }) => {
   };
 
   return (
-    <button
-      onClick={isRecording ? stopRecording : startRecording}
-      disabled={isProcessing}
-      className={`p-3 rounded-full transition-all duration-300 shadow-lg flex items-center justify-center ${
-        isRecording 
-          ? 'bg-red-500 hover:bg-red-600 animate-pulse' 
+    <div className="flex flex-col items-center">
+      <button
+        onClick={isRecording ? stopRecording : startRecording}
+        disabled={isProcessing}
+        className={`p-3 rounded-full transition-all duration-300 shadow-lg flex items-center justify-center relative ${isRecording
+          ? 'bg-red-500 hover:bg-red-600 animate-pulse ring-4 ring-red-500/30'
           : isProcessing
             ? 'bg-slate-700 cursor-not-allowed'
             : 'bg-blue-600 hover:bg-blue-500'
-      }`}
-      title={isRecording ? "Detener Grabación" : "Agregar Tarea por Voz"}
-    >
-      {isProcessing ? (
-        <Loader2 className="animate-spin text-white" size={24} />
-      ) : isRecording ? (
-        <Square className="fill-current text-white" size={24} />
-      ) : (
-        <Mic className="text-white" size={24} />
+          }`}
+        title={isRecording ? t('voice.stop') : t('voice.add_task')}
+      >
+        {isProcessing ? (
+          <Loader2 className="animate-spin text-white" size={24} />
+        ) : isRecording ? (
+          <Square className="fill-current text-white" size={24} />
+        ) : (
+          <Mic className="text-white" size={24} />
+        )}
+      </button>
+      {(isRecording || isProcessing) && (
+        <span className="text-[10px] font-bold uppercase tracking-widest mt-1 animate-pulse text-blue-300">
+          {isRecording ? t('voice.listening') : t('voice.processing')}
+        </span>
       )}
-    </button>
+    </div>
   );
 };
 
