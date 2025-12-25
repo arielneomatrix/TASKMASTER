@@ -25,6 +25,7 @@ export enum ViewState {
   TASKS = 'TASKS',
   CALENDAR = 'CALENDAR',
   ASSISTANT = 'ASSISTANT',
+  STATISTICS = 'STATISTICS',
   SETTINGS = 'SETTINGS'
 }
 

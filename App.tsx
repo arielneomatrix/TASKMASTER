@@ -5,6 +5,7 @@ import TaskView from './components/TaskView';
 import CalendarView from './components/CalendarView';
 import AssistantView from './components/AssistantView';
 import SettingsView from './components/SettingsView';
+import StatisticsView from './components/StatisticsView';
 import { Task, ViewState, UserProfile, SyncStatus } from './types';
 import { cloudSync } from './services/firestoreService';
 import { getLocalISODate, parseLocalDate } from './services/dateUtils';
@@ -199,6 +200,9 @@ const App: React.FC = () => {
           )}
           {currentView === ViewState.ASSISTANT && (
             <AssistantView tasks={tasks.filter(t => t.date === selectedDate)} date={selectedDate} />
+          )}
+          {currentView === ViewState.STATISTICS && (
+            <StatisticsView tasks={tasks} />
           )}
           {currentView === ViewState.SETTINGS && (
             <SettingsView tasks={tasks} onClearData={handleClearData} user={user} onUpdateUser={handleUpdateUser} />

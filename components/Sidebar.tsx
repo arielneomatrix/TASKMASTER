@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { LayoutDashboard, Calendar, Mic, Settings, ListTodo, Download, Cloud, CloudSync as SyncIcon, CloudOff, AlertCircle } from 'lucide-react';
+import { LayoutDashboard, Calendar, Mic, Settings, ListTodo, Download, Cloud, CloudSync as SyncIcon, CloudOff, AlertCircle, BarChart3 } from 'lucide-react';
 import { ViewState, SyncStatus, UserProfile } from '../types';
 import { getAvatarUrl } from '../services/syncService';
 import { useLanguage } from '../services/i18n';
@@ -39,8 +39,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, syncStatus
     <button
       onClick={() => onChangeView(view)}
       className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 ${currentView === view
-          ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50'
-          : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'
+        ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50'
+        : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'
         }`}
     >
       <Icon size={20} />
@@ -104,6 +104,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, syncStatus
       <nav className="space-y-2 flex-1">
         <NavItem view={ViewState.TASKS} icon={LayoutDashboard} label={t('sidebar.tasks')} />
         <NavItem view={ViewState.CALENDAR} icon={Calendar} label={t('sidebar.calendar')} />
+        <NavItem view={ViewState.STATISTICS} icon={BarChart3} label={t('sidebar.statistics')} />
         <NavItem view={ViewState.ASSISTANT} icon={Mic} label={t('sidebar.assistant')} />
       </nav>
 
@@ -119,8 +120,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, syncStatus
         <button
           onClick={() => onChangeView(ViewState.SETTINGS)}
           className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 ${currentView === ViewState.SETTINGS
-              ? 'bg-slate-800 text-white border border-slate-700'
-              : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'
+            ? 'bg-slate-800 text-white border border-slate-700'
+            : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'
             }`}
         >
           <Settings size={20} />
