@@ -4,8 +4,9 @@ import { Task, AiTaskResponse } from '../types';
 import { generateTitleFromDescription } from '../services/geminiService';
 import { playSuccessSound } from '../services/audioUtils';
 import { formatDateFriendly } from '../services/dateUtils';
-import { Plus, Clock, CheckCircle2, Circle, Wand2, Check } from 'lucide-react';
+import { Plus, Clock, CheckCircle2, Circle, Wand2, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import VoiceInput from './VoiceInput';
+import { useLanguage } from '../services/i18n';
 
 interface TaskViewProps {
   tasks: Task[];
@@ -14,9 +15,12 @@ interface TaskViewProps {
   onToggleTask: (id: string) => void;
   onEditTask: (task: Task) => void;
   onDeleteTask: (id: string) => void;
+  onNextDay: () => void;
+  onPrevDay: () => void;
 }
 
-const TaskView: React.FC<TaskViewProps> = ({ tasks, date, onAddTask, onToggleTask, onEditTask, onDeleteTask }) => {
+const TaskView: React.FC<TaskViewProps> = ({ tasks, date, onAddTask, onToggleTask, onEditTask, onDeleteTask, onNextDay, onPrevDay }) => {
+  const { t, language } = useLanguage();
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskDesc, setNewTaskDesc] = useState('');
   const [newTaskTime, setNewTaskTime] = useState('');
@@ -28,13 +32,46 @@ const TaskView: React.FC<TaskViewProps> = ({ tasks, date, onAddTask, onToggleTas
   const [editTitle, setEditTitle] = useState('');
   const [editDesc, setEditDesc] = useState('');
   const [editTime, setEditTime] = useState('');
+  const [editDate, setEditDate] = useState(''); // New: Edit Date capability
+
+  // Helper for Date Display
+  const getFormattedDateTitle = () => {
+    const dateObj = new Date(date + 'T00:00:00'); // Ensure local time parsing
+    // Map language codes to locales
+    const localeMap: Record<string, string> = { 'es': 'es-ES', 'en': 'en-US', 'id': 'id-ID' };
+    const currentLocale = localeMap[language] || 'es-ES';
+
+    const dayName = dateObj.toLocaleDateString(currentLocale, { weekday: 'long' });
+    const fullDate = dateObj.toLocaleDateString(currentLocale, { day: 'numeric', month: 'long', year: 'numeric' });
+
+    return { dayName, fullDate };
+  };
+
+  const { dayName, fullDate } = getFormattedDateTitle();
 
   const checkConflict = (time: string, excludeId?: string) => {
     const conflict = tasks.find(t => t.time === time && t.id !== excludeId);
     if (conflict) {
-      return confirm(`⚠️ Ya tienes una tarea a las ${time}: "${conflict.title}".\n\n¿Quieres agendar esta también a la misma hora?`);
+      return confirm(t('task.conflict', { time, title: conflict.title }));
     }
     return true; // No conflict or user confirmed
+  };
+  // ... (rest of code logic remains same until return)
+
+  const handleSaveEdit = (originalTask: Task) => {
+    if (!editTitle.trim()) return;
+
+    if (!checkConflict(editTime, originalTask.id)) return;
+
+    onEditTask({
+      ...originalTask,
+      title: editTitle,
+      description: editDesc,
+      time: editTime,
+      date: editDate // Support date moving
+    });
+    setEditingTaskId(null);
+    showToast(t('task.updated'));
   };
 
   const handleDescBlur = async () => {
@@ -66,39 +103,17 @@ const TaskView: React.FC<TaskViewProps> = ({ tasks, date, onAddTask, onToggleTas
       title: newTaskTitle,
       description: newTaskDesc,
       time: timeToUse,
-      date: date,
+      date: date, // Uses the current prop date
       completed: false
     };
 
     onAddTask(task);
     playSuccessSound();
-    showToast("¡Tarea creada exitosamente!");
+    showToast(t('task.created'));
 
     setNewTaskTitle('');
     setNewTaskDesc('');
     setNewTaskTime('');
-  };
-
-  const startEditing = (task: Task) => {
-    setEditingTaskId(task.id);
-    setEditTitle(task.title);
-    setEditDesc(task.description || '');
-    setEditTime(task.time);
-  };
-
-  const handleSaveEdit = (originalTask: Task) => {
-    if (!editTitle.trim()) return;
-
-    if (!checkConflict(editTime, originalTask.id)) return;
-
-    onEditTask({
-      ...originalTask,
-      title: editTitle,
-      description: editDesc,
-      time: editTime
-    });
-    setEditingTaskId(null);
-    showToast("¡Tarea actualizada!");
   };
 
   const handleVoiceData = (data: AiTaskResponse) => {
@@ -111,11 +126,21 @@ const TaskView: React.FC<TaskViewProps> = ({ tasks, date, onAddTask, onToggleTas
     onToggleTask(id);
     if (!currentlyCompleted) {
       playSuccessSound();
-      showToast("¡Tarea completada!");
+      showToast(t('task.completed'));
     }
   };
 
   const sortedTasks = [...tasks].sort((a, b) => a.time.localeCompare(b.time));
+
+  const startEditing = (task: Task) => {
+    setEditingTaskId(task.id);
+    setEditTitle(task.title);
+    setEditDesc(task.description || '');
+    setEditTime(task.time);
+    setEditDate(task.date);
+  };
+
+  // ... 
 
   return (
     <div className="flex flex-col h-[100dvh] bg-slate-900/50 relative">
@@ -130,11 +155,25 @@ const TaskView: React.FC<TaskViewProps> = ({ tasks, date, onAddTask, onToggleTas
       )}
 
       {/* Header */}
-      <div className="p-6 md:p-8 pb-4">
-        <h2 className="text-2xl md:text-3xl font-bold text-white mb-1">Mi Día</h2>
-        <p className="text-slate-400 capitalize text-sm md:text-base">
-          {formatDateFriendly(date)}
-        </p>
+      <div className="p-6 md:p-8 pb-4 flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl md:text-3xl font-bold text-white mb-1 capitalize flex items-center gap-2">
+            {dayName}
+          </h2>
+          <p className="text-slate-400 capitalize text-sm md:text-base">
+            {fullDate}
+          </p>
+        </div>
+
+        {/* Navigation Arrows */}
+        <div className="flex gap-2">
+          <button onClick={onPrevDay} className="p-2 bg-slate-800 rounded-full hover:bg-slate-700 text-slate-300 transition-colors">
+            <ChevronLeft size={24} />
+          </button>
+          <button onClick={onNextDay} className="p-2 bg-slate-800 rounded-full hover:bg-slate-700 text-slate-300 transition-colors">
+            <ChevronRight size={24} />
+          </button>
+        </div>
       </div>
 
       {/* Task List */}

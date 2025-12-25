@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Settings, Download, Trash2, User, Cloud, LogIn, UserPlus, CheckCircle2, AlertCircle, RefreshCw, AlertTriangle, Database, Save, X, Globe } from 'lucide-react';
+import { Settings, Trash2, User, Cloud, LogIn, UserPlus, CheckCircle2, AlertCircle, RefreshCw, AlertTriangle, Database, Save, X, Globe } from 'lucide-react';
 import { Task, UserProfile, Language } from '../types';
 import { cloudSync } from '../services/firestoreService';
 import { isFirebaseConfigured, saveConfig, clearConfig, FirebaseConfig } from '../services/firebaseConfig';
@@ -71,15 +71,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ tasks, onClearData, user, o
         }
     };
 
-    const handleExport = () => {
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(tasks, null, 2));
-        const downloadAnchorNode = document.createElement('a');
-        downloadAnchorNode.setAttribute("href", dataStr);
-        downloadAnchorNode.setAttribute("download", `tareas_${new Date().toISOString().split('T')[0]}.json`);
-        document.body.appendChild(downloadAnchorNode);
-        downloadAnchorNode.click();
-        downloadAnchorNode.remove();
-    };
+
 
     const handleLogin = async () => {
         if (passphrase.length < 4) {
@@ -347,23 +339,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ tasks, onClearData, user, o
                     </div>
                 )}
 
-                {/* Tools Section */}
-                <div className="grid grid-cols-2 gap-4">
-                    <button
-                        onClick={handleExport}
-                        className="bg-slate-800 hover:bg-slate-700 text-slate-300 p-4 rounded-2xl border border-slate-700 transition-all flex flex-col items-center gap-2 text-xs font-bold"
-                    >
-                        <Download size={20} className="text-green-500" /> {t('settings.export_json')}
-                    </button>
-                    <button
-                        onClick={() => {
-                            if (confirm(t('settings.delete_app_confirm'))) onClearData();
-                        }}
-                        className="bg-slate-800 hover:bg-red-900/20 text-slate-300 p-4 rounded-2xl border border-slate-700 transition-all flex flex-col items-center gap-2 text-xs font-bold"
-                    >
-                        <Trash2 size={20} className="text-red-500" /> {t('settings.delete_app')}
-                    </button>
-                </div>
+
 
                 <div className="text-center text-slate-600 text-[10px] tracking-widest uppercase py-4">
                     TaskMaster AI • Firestore Edition v5.0

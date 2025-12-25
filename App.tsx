@@ -7,7 +7,7 @@ import AssistantView from './components/AssistantView';
 import SettingsView from './components/SettingsView';
 import { Task, ViewState, UserProfile, SyncStatus } from './types';
 import { cloudSync } from './services/firestoreService';
-import { getLocalISODate } from './services/dateUtils';
+import { getLocalISODate, parseLocalDate } from './services/dateUtils';
 import { Menu, Cloud, CloudSync as SyncIcon, Check } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -31,20 +31,11 @@ const App: React.FC = () => {
     setSelectedDate(getLocalISODate());
   }, []);
 
-  // Sync with Cloud when tasks change (Debounced)
+  // Sync with Cloud when tasks change (Debounced) - DEPRECATED for critical actions
+  // Removed debounce logic to prevent data loss on casual close
   useEffect(() => {
     localStorage.setItem('tm_tasks', JSON.stringify(tasks));
-
-    if (user.syncCode && user.syncCode.length > 3) {
-      const timeoutId = setTimeout(async () => {
-        setSyncStatus('syncing');
-        const success = await cloudSync.saveTasks(user.syncCode, tasks);
-        setSyncStatus(success ? 'synced' : 'error');
-      }, 2000);
-
-      return () => clearTimeout(timeoutId);
-    }
-  }, [tasks, user.syncCode]);
+  }, [tasks]);
 
   // Periodic Cloud Pull (Check for updates from other devices)
   useEffect(() => {
@@ -58,6 +49,9 @@ const App: React.FC = () => {
     initialLoad();
 
     const interval = setInterval(async () => {
+      // Only pull if we are not currently saving to avoid race conditions
+      if (syncStatus === 'syncing') return;
+
       const cloudTasks = await cloudSync.loadTasks(user.syncCode);
       if (cloudTasks) {
         // Estrategia simple: la nube manda. 
@@ -70,25 +64,47 @@ const App: React.FC = () => {
           return prev;
         });
       }
-    }, 10000); // 10s polling for Firestore is safer than 5s
+    }, 10000); // 10s polling for Firestore
 
     return () => clearInterval(interval);
   }, [user.syncCode]);
 
+  // Helper to save immediately
+  const saveToCloudImmediate = async (newTasks: Task[]) => {
+    if (user.syncCode && user.syncCode.length > 3) {
+      setSyncStatus('syncing');
+      // Small delay just to show spinner/feedback, but execution is immediate
+      try {
+        const success = await cloudSync.saveTasks(user.syncCode, newTasks);
+        setSyncStatus(success ? 'synced' : 'error');
+      } catch (e) {
+        setSyncStatus('error');
+      }
+    }
+  };
+
   const addTask = (task: Task) => {
-    setTasks(prev => [...prev, task]);
+    const newTasks = [...tasks, task];
+    setTasks(newTasks);
+    saveToCloudImmediate(newTasks);
   };
 
   const toggleTask = (id: string) => {
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
+    const newTasks = tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t);
+    setTasks(newTasks);
+    saveToCloudImmediate(newTasks);
   };
 
   const editTask = (updatedTask: Task) => {
-    setTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
+    const newTasks = tasks.map(t => t.id === updatedTask.id ? updatedTask : t);
+    setTasks(newTasks);
+    saveToCloudImmediate(newTasks);
   };
 
   const deleteTask = (id: string) => {
-    setTasks(prev => prev.filter(t => t.id !== id));
+    const newTasks = tasks.filter(t => t.id !== id);
+    setTasks(newTasks);
+    saveToCloudImmediate(newTasks);
   };
 
   const handleUpdateUser = async (newUser: UserProfile) => {
@@ -123,6 +139,17 @@ const App: React.FC = () => {
   const handleClearData = () => {
     setTasks([]);
     localStorage.removeItem('tm_tasks');
+  };
+
+  const changeDay = (offset: number) => {
+    const dateObj = parseLocalDate(selectedDate);
+    dateObj.setDate(dateObj.getDate() + offset);
+
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+
+    setSelectedDate(`${year}-${month}-${day}`);
   };
 
   return (
@@ -163,6 +190,8 @@ const App: React.FC = () => {
               onToggleTask={toggleTask}
               onEditTask={editTask}
               onDeleteTask={deleteTask}
+              onNextDay={() => changeDay(1)}
+              onPrevDay={() => changeDay(-1)}
             />
           )}
           {currentView === ViewState.CALENDAR && (
